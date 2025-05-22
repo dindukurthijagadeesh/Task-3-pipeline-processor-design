@@ -1,0 +1,54 @@
+module simple_pipeline_cpu(input clk);
+
+    // Define instruction opcodes
+    parameter ADD  = 4'b0001;
+    parameter SUB  = 4'b0010;
+    parameter LOAD = 4'b0011;
+
+    // Register file: 16 x 8-bit registers
+    reg [7:0] regfile[0:15];
+
+    // Instruction memory (16 instructions max)
+    reg [15:0] instr_mem[0:15];
+
+    // Data memory
+    reg [7:0] data_mem[0:15];
+
+    // Pipeline registers
+    reg [15:0] IF_ID_instr;
+    reg [15:0] ID_EX_instr;
+    reg [7:0] ID_EX_r1, ID_EX_r2;
+    reg [15:0] EX_WB_instr;
+    reg [7:0] EX_WB_result;
+
+    // Program counter
+    reg [3:0] pc = 0;
+
+    // Stage 1: Instruction Fetch (IF)
+    always @(posedge clk) begin
+        IF_ID_instr <= instr_mem[pc];
+        pc <= pc + 1;
+    end
+
+    // Stage 2: Instruction Decode (ID)
+    always @(posedge clk) begin
+        ID_EX_instr <= IF_ID_instr;
+        ID_EX_r1 <= regfile[IF_ID_instr[7:4]];  // src1
+        ID_EX_r2 <= regfile[IF_ID_instr[3:0]];  // src2 or base
+    end
+
+    // Stage 3: Execute (EX)
+    always @(posedge clk) begin
+        EX_WB_instr <= ID_EX_instr;
+        case (ID_EX_instr[15:12])
+            ADD:  EX_WB_result <= ID_EX_r1 + ID_EX_r2;
+            SUB:  EX_WB_result <= ID_EX_r1 - ID_EX_r2;
+            LOAD: EX_WB_result <= data_mem[ID_EX_r2 + ID_EX_instr[3:0]];
+            default: EX_WB_result <= 0;
+        endcase
+    end
+
+    // Stage 4: Writeback (WB)
+    always @(posedge clk) begin
+        case (EX_WB_instr[15:12])
+            ADD, SUB, LOAD: regfile[EX_WB_instr[11:8]] <= EX_
